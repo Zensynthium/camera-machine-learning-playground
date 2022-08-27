@@ -1,0 +1,7 @@
+{
+  "name": "camera-machine-learning-playground",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "vue"
+}
