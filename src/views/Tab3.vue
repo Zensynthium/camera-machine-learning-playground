@@ -96,7 +96,7 @@ export default defineComponent({
     IonItem,
   },
   setup() {
-    const { checkPlatform } = utilities();
+    const { checkPlatform, UppercaseFirstLetterOfWords } = utilities();
 
     const { photos, takePhoto, deletePhoto } = usePhotoGallery();
 
@@ -108,6 +108,7 @@ export default defineComponent({
 
     const startCamera = async () => {
       if (checkPlatform() == 'web') {
+        detectVideoWeb()
         await takePhoto();
       } else {
         // Mobile
@@ -200,10 +201,45 @@ export default defineComponent({
                   observer.disconnect();
 
                   if (videoElement.value) {
+                    // Overlay canvas on top of video so we can draw accurately
+                    const canvas = document.createElement("canvas");
+                    canvas.id = "canvas";
+
+                    const canvasWidth = 600;
+                    const canvasHeight = 600;
+
+                    canvas.width = canvasWidth;
+                    canvas.height = canvasHeight;
+
+                    // Same inline styling as Video Element
+                    canvas.style.width = "100%";
+                    canvas.style.height = "100%";
+                    canvas.style.maxHeight = "100%";
+                    canvas.style.minHeight = "100%";
+                    canvas.style.objectFit = "cover";
+
+                    canvas.style.position = "absolute";
+                    canvas.style.top = "0";
+                    canvas.style.left = "0";
+
+                    videoElement.value.parentNode.appendChild(canvas);
+
+                    const canvasContext = canvas.getContext("2d");
+
+                    if (canvasContext) {
+                      canvasContext.translate(canvasWidth, 0);
+                      canvasContext.scale(-1, 1);
+                    }
+
                     videoElement.value.addEventListener('loadeddata', async (event: any) => {
+                      const videoWidth = videoElement.value.videoWidth;
+                      const videoHeight = videoElement.value.videoHeight;
+
+                      canvas.width = videoWidth;
+                      canvas.height = videoHeight;
+
                       const model = await cocoSsd.load();
 
-                      // NOTE: May need to provide position: relative; like in the demo
                       const liveView = videoElement.value.parentNode;
                       const predictionStyles = document.createElement('style');
 
@@ -240,46 +276,86 @@ export default defineComponent({
 
                         entities.value = predictions;
 
+                        if (canvasContext) {
+                          canvasContext.clearRect(0, 0, canvas.width, canvas.height);
+                          canvasContext.drawImage(videoElement.value, 0, 0);
+                        }
+
                         if (predictions.length) {
                           console.log(predictions);
 
                           // Now let's start classifying the stream.
                           model.detect(videoElement.value).then(function (predictions: any) {
                             // Remove any highlighting we did previous frame.
-                            for (let i = 0; i < children.length; i++) {
-                              liveView.removeChild(children[i]);
-                            }
-                            children.splice(0);
+                            // for (let i = 0; i < children.length; i++) {
+                            //   liveView.removeChild(children[i]);
+                            // }
+                            // children.splice(0);
 
                             // Now lets loop through predictions and draw them to the live view if
                             // they have a high confidence score.
                             for (let n = 0; n < predictions.length; n++) {
                               // If we are over 66% sure we are sure we classified it right, draw it!
                               if (predictions[n].score > 0.66) {
-                                const p = document.createElement('p')
-                                p.innerText = predictions[n].class + ' - with '
-                                  + Math.round(parseFloat(predictions[n].score.toString()) * 100)
-                                  + '% confidence.';
+                                // const p = document.createElement('p')
+                                // p.innerText = predictions[n].class + ' - with '
+                                //   + Math.round(parseFloat(predictions[n].score.toString()) * 100)
+                                //   + '% confidence.';
+
+                                if (canvasContext) {
+                                  // Bounding Box - Body Outline
+                                  canvasContext.beginPath();
+                                  canvasContext.strokeStyle = "rgba(27, 140, 254, 0.30)"; //"rgba(255, 255, 255, 0.7)";
+                                  canvasContext.rect(predictions[n].bbox[0], predictions[n].bbox[1], predictions[n].bbox[2], predictions[n].bbox[3])
+                                  canvasContext.stroke();
+
+                                  // Bounding Box - Body
+                                  canvasContext.fillStyle = "rgba(27, 140, 254, 0.15)";
+                                  canvasContext.fillRect(predictions[n].bbox[0], predictions[n].bbox[1], predictions[n].bbox[2], predictions[n].bbox[3]);
+                                  
+                                  // Bounding Box - Title Outline
+                                  canvasContext.beginPath();
+                                  canvasContext.strokeStyle = "rgba(27, 140, 254, 0.30)"; //"rgba(255, 255, 255, 0.7)";
+                                  canvasContext.rect(predictions[n].bbox[0], predictions[n].bbox[1], predictions[n].bbox[2], 25)
+                                  canvasContext.stroke();
+                                  
+                                  // Bounding Box - Title
+                                  canvasContext.fillStyle = "rgba(27, 140, 254, 0.15)";
+                                  canvasContext.fillRect(predictions[n].bbox[0], predictions[n].bbox[1], predictions[n].bbox[2], 25);
+
+                                  // Bounding Box - Title Text
+                                  canvasContext.font = "12px Arial";
+                                  canvasContext.fillStyle = "rgb(255, 255, 255)";
+                                  canvasContext.fillText(UppercaseFirstLetterOfWords(predictions[n].class)
+                                  // + ' - with '
+                                  // + Math.round(parseFloat(predictions[n].score.toString()) * 100)
+                                  // + '% confidence.'
+                                  , predictions[n].bbox[0] + 5, predictions[n].bbox[1] + 15);
+                                }
+
+                                // TODO: Fix bounding box issue as the bounding box is being drawn on the video element size and not the actual video so it's offset a bit due to zooming on smaller screens
+                                // NOTE: This may be achievable with a canvas as we can make the canvas and video equally distort to line up.
+
                                 // Draw in top left of bounding box outline.
-                                p.setAttribute('class', 'highlighter-title');
-                                p.style.left = predictions[n].bbox[0] + 'px';
-                                p.style.top = predictions[n].bbox[1] + 'px';
-                                p.style.width = (predictions[n].bbox[2] - 10) + 'px';
+                                // p.setAttribute('class', 'highlighter-title');
+                                // p.style.left = predictions[n].bbox[0] + 'px';
+                                // p.style.top = predictions[n].bbox[1] + 'px';
+                                // p.style.width = (predictions[n].bbox[2] - 10) + 'px';
 
                                 // Draw the actual bounding box.
-                                const highlighter = document.createElement('div');
-                                highlighter.setAttribute('class', 'highlighter');
-                                highlighter.style.left = predictions[n].bbox[0] + 'px';
-                                highlighter.style.top = predictions[n].bbox[1] + 'px';
-                                highlighter.style.width = predictions[n].bbox[2] + 'px';
-                                highlighter.style.height = predictions[n].bbox[3] + 'px';
+                                // const highlighter = document.createElement('div');
+                                // highlighter.setAttribute('class', 'highlighter');
+                                // highlighter.style.left = predictions[n].bbox[0] + 'px';
+                                // highlighter.style.top = predictions[n].bbox[1] + 'px';
+                                // highlighter.style.width = predictions[n].bbox[2] + 'px';
+                                // highlighter.style.height = predictions[n].bbox[3] + 'px';
 
-                                liveView.appendChild(highlighter);
-                                liveView.appendChild(p);
+                                // liveView.appendChild(highlighter);
+                                // liveView.appendChild(p);
 
                                 // Store drawn objects in memory so we can delete them next time around.
-                                children.push(highlighter);
-                                children.push(p);
+                                // children.push(highlighter);
+                                // children.push(p);
                               }
                             }
                           });
@@ -352,12 +428,12 @@ export default defineComponent({
       const predictWebcam = async () => {
         console.log('prediction loop!')
 
-        
+
         const result = await CameraPreview.captureSample({ quality: 0.85 });
         const base64PictureData = result.value;
 
         videoFrame.value = 'data:image/png;base64,' + base64PictureData;
-        
+
         console.log(videoFrame.value);
         console.log(imageElement.value);
 
@@ -386,6 +462,7 @@ export default defineComponent({
                 p.innerText = predictions[n].class + ' - with '
                   + Math.round(parseFloat(predictions[n].score.toString()) * 100)
                   + '% confidence.';
+
                 // Draw in top left of bounding box outline.
                 p.setAttribute('class', 'highlighter-title');
                 p.style.left = predictions[n].bbox[0] + 'px';
@@ -419,9 +496,6 @@ export default defineComponent({
     onMounted(async () => {
       // NOTE: Setup Model
 
-      if (checkPlatform() == "web") {
-        detectVideoWeb();
-      }
     })
 
     return {

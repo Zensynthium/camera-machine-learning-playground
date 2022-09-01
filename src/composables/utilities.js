@@ -5,5 +5,15 @@ export default function() {
     return Capacitor.getPlatform()
   }
 
-  return { checkPlatform }
+  const UppercaseFirstLetterOfWords = (sentence) => {
+    const words = sentence.split(" ");
+
+    const uppercasedSentence = words.map((word) => { 
+        return word[0].toUpperCase() + word.substring(1); 
+    }).join(" ");
+
+    return uppercasedSentence
+  }
+
+  return { UppercaseFirstLetterOfWords, checkPlatform }
 }

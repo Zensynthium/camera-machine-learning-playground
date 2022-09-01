@@ -6,7 +6,7 @@
       </ion-toolbar>
     </ion-header>
     <ion-content :fullscreen="true">
-      <ion-header collapse="condense">
+      <!-- <ion-header collapse="condense">
         <ion-toolbar>
           <ion-title size="large">Photo Gallery</ion-title>
         </ion-toolbar>
@@ -17,21 +17,37 @@
             <ion-img :src="photo.webviewPath" @click="showActionSheet(photo)"></ion-img>
           </ion-col>
         </ion-row>
-      </ion-grid>
+      </ion-grid> -->
 
-      <ion-title id="conditions">Conditions: {{ showConditions }}</ion-title>
+      <ion-title id="conditions" class="ion-padding-top">Conditions: {{ showConditions }}</ion-title>
+
+      <!-- <ion-fab v-if="checkPlatform() != 'web'" vertical="bottom" horizontal="start" slot="fixed">
+        <ion-fab-button @click="CameraPreview.stop()">
+          <ion-icon :icon="closeOutline"></ion-icon>
+        </ion-fab-button>
+      </ion-fab> -->
 
       <ion-fab vertical="bottom" horizontal="center" slot="fixed">
-        <ion-fab-button @click="takePhoto()">
+        <ion-fab-button @click="startCamera()">
           <ion-icon :icon="camera"></ion-icon>
         </ion-fab-button>
       </ion-fab>
+
+      <!-- <ion-fab v-if="checkPlatform() != 'web'" vertical="bottom" horizontal="end" slot="fixed">
+        <ion-fab-button @click="CameraPreview.flip()">
+          <ion-icon :icon="repeat"></ion-icon>
+        </ion-fab-button>
+      </ion-fab> -->
+
     </ion-content>
   </ion-page>
 </template>
 
 <script lang="ts">
+import utilities from '@/composables/utilities';
+
 import { camera, trash, close } from 'ionicons/icons';
+
 import {
   actionSheetController,
   IonPage,
@@ -83,7 +99,20 @@ export default defineComponent({
     IonItem,
   },
   setup() {
+    const { checkPlatform } = utilities();
+
     const { photos, takePhoto, deletePhoto } = usePhotoGallery();
+
+    const startCamera = async () => {
+      if (checkPlatform() == 'web') {
+        detectVideoElement();
+        await takePhoto();
+      } else {
+        // Mobile
+        // await CameraPreview.start(CameraPreviewOptions);
+        // await detectVideoMobile();
+      }
+    }
 
     const showActionSheet = async (photo: UserPhoto) => {
       const actionSheet = await actionSheetController.create({
@@ -192,11 +221,9 @@ export default defineComponent({
                   observer.disconnect();
 
                   if (videoElement.value) {
-                    // const videoWidth = videoElement.value.clientWidth;
-                    // const videoHeight = videoElement.value.clientHeight;
-
                     // Overlay canvas on top of video so we can draw points
-                    const canvas = document.createElement('canvas');
+                    const canvas = document.createElement("canvas");
+                    canvas.id = "canvas";
 
                     const canvasWidth = 600;
                     const canvasHeight = 600;
@@ -211,13 +238,16 @@ export default defineComponent({
                     canvas.style.minHeight = "100%";
                     canvas.style.objectFit = "cover";
 
-                    canvas.style.position = 'absolute';
+                    canvas.style.position = "absolute";
                     canvas.style.top = "0";
                     canvas.style.left = "0";
                     
                     // canvas.style.bottom = ((videoHeight * 2) + 8) + 'px';
 
                     videoElement.value.parentNode.appendChild(canvas);
+                    
+                    // const canvasStyle = document.createElement('style');
+                    // videoElement.value.parentNode.append(canvasStyle);
 
                     // Creating 3D Plot Container
                     // const scatterGL = document.createElement('div');
@@ -239,6 +269,12 @@ export default defineComponent({
                     const { drawResults } = drawCanvas(canvasContext);
 
                     videoElement.value.addEventListener('loadeddata', async (event: any) => {
+                      const videoWidth = videoElement.value.videoWidth;
+                      const videoHeight = videoElement.value.videoHeight;
+
+                      canvas.width = videoWidth;
+                      canvas.height = videoHeight;
+
                       // Acceptable Parameter Formats: tf.Tensor3D, ImageData, HTMLVideoElement, HTMLImageElement, HTMLCanvasElement
                       const detectorConfig = {
                         modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
@@ -248,12 +284,7 @@ export default defineComponent({
 
                       const detector = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet, detectorConfig);
 
-                      videoElement.value.style.display = 'none';
-                      // if (offscreenRender != null) {
-                      //   offscreenRender.style.display = 'none';
-                      // }
-
-                      poseInterval.value = setInterval(async () => {
+                      const processWebcamFeed = async () => {
                         canvasContext?.clearRect(0, 0, canvas.width, canvas.height);
                         canvasContext?.drawImage(videoElement.value, 0, 0);
                         const poses = await detector.estimatePoses(videoElement.value);
@@ -267,7 +298,11 @@ export default defineComponent({
                           console.log(poses)
                         }
 
-                      }, 30);
+                        // Call this function again to keep predicting when the browser is ready.
+                        window.requestAnimationFrame(processWebcamFeed);
+                      }
+
+                      await processWebcamFeed();
                     });
                   }
                 }, 500);
@@ -294,10 +329,11 @@ export default defineComponent({
       // MULTIPOSE_LIGHTNING is for when more than one person are in the frame.
       await setupModel({ model: 'movenet', type: 'lightning' });
 
-      detectVideoElement();
+      // detectVideoElement();
     })
 
     return {
+      startCamera,
       photos,
       takePhoto,
       showActionSheet,
@@ -320,4 +356,5 @@ export default defineComponent({
 .offscreen-image-render {
   display: none;
 }
+
 </style>
