@@ -142,6 +142,7 @@ export default defineComponent({
       await actionSheet.present();
     };
 
+    const cameraShadowRoot = ref();
     const videoElement = ref();
     const imageElement = ref();
     const videoFrame = ref();
@@ -190,10 +191,10 @@ export default defineComponent({
               if (shadowRoot) {
                 setTimeout(() => {
                   const pwaCamera = shadowRoot?.querySelector('pwa-camera');
-                  const nestedShadowRoot = pwaCamera?.shadowRoot;
-                  videoElement.value = nestedShadowRoot?.querySelector('video');
+                  cameraShadowRoot.value = pwaCamera?.shadowRoot;
+                  videoElement.value = cameraShadowRoot.value?.querySelector('video');
 
-                  const offscreenRender = nestedShadowRoot?.querySelector('.offscreen-image-render') as HTMLElement || null;
+                  const offscreenRender = cameraShadowRoot.value?.querySelector('.offscreen-image-render') as HTMLElement || null;
                   if (offscreenRender) {
                     offscreenRender.style.display = 'none';
                   }
@@ -240,30 +241,30 @@ export default defineComponent({
 
                       const model = await cocoSsd.load();
 
-                      const liveView = videoElement.value.parentNode;
-                      const predictionStyles = document.createElement('style');
+                      // const liveView = videoElement.value.parentNode;
+                      // const predictionStyles = document.createElement('style');
 
-                      // Getting styling into shadow-root instead of modifying highlight element's css with javascript every frame
-                      predictionStyles.textContent = `
-                      .highlighter {
-                        background: rgba(0, 255, 0, 0.25);
-                        border: 1px dashed #fff;
-                        z-index: 1;
-                        position: absolute;
-                      }
+                      // // Getting styling into shadow-root instead of modifying highlight element's css with javascript every frame
+                      // predictionStyles.textContent = `
+                      // .highlighter {
+                      //   background: rgba(0, 255, 0, 0.25);
+                      //   border: 1px dashed #fff;
+                      //   z-index: 1;
+                      //   position: absolute;
+                      // }
 
-                      .highlighter-title {
-                        position: absolute;
-                        padding: 5px;
-                        background-color: rgba(255, 111, 0, 0.85);
-                        color: #FFF;
-                        border: 1px dashed rgba(255, 255, 255, 0.7);
-                        z-index: 2;
-                        font-size: 12px;
-                        margin: 0;
-                      }`;
+                      // .highlighter-title {
+                      //   position: absolute;
+                      //   padding: 5px;
+                      //   background-color: rgba(255, 111, 0, 0.85);
+                      //   color: #FFF;
+                      //   border: 1px dashed rgba(255, 255, 255, 0.7);
+                      //   z-index: 2;
+                      //   font-size: 12px;
+                      //   margin: 0;
+                      // }`;
 
-                      liveView.append(predictionStyles);
+                      // liveView.append(predictionStyles);
 
                       // Keep a reference of all the child elements we create
                       // so we can remove them easilly on each render.
@@ -271,17 +272,42 @@ export default defineComponent({
 
                       // Prediction loop!
                       const predictWebcam = async () => {
-                        // Acceptable Parameter Formats: tf.Tensor3D, ImageData, HTMLVideoElement, HTMLImageElement, HTMLCanvasElement
-                        const predictions = await model.detect(videoElement.value);
+                        var predictions = null;
 
-                        entities.value = predictions;
+                        try {
+                          // Acceptable Parameter Formats: tf.Tensor3D, ImageData, HTMLVideoElement, HTMLImageElement, HTMLCanvasElement
+                          predictions = await model.detect(videoElement.value);
+
+                          entities.value = predictions;
+                        } catch (err) {
+                          // NOTE: model.detect fails when the video element in the parameter no longer exists due to DOM Manipulation from the camera state changing
+                          setTimeout(() => {
+                            console.log(err)
+
+                            const actionIcons = cameraShadowRoot.value.querySelectorAll(".item.accept-use, .item.accept-cancel");
+
+                            actionIcons.forEach((icon: HTMLElement) => {
+                              icon.addEventListener("click", () => {
+                                setTimeout(() => {
+                                  videoElement.value = cameraShadowRoot.value.querySelector('video');
+
+                                  videoElement.value?.addEventListener('loadeddata', async (event: any) => {
+                                    await predictWebcam();
+                                  });
+                                }, 0);
+                              });
+                            });
+                          }, 0);
+
+                          return
+                        }
 
                         if (canvasContext) {
                           canvasContext.clearRect(0, 0, canvas.width, canvas.height);
                           canvasContext.drawImage(videoElement.value, 0, 0);
                         }
 
-                        if (predictions.length) {
+                        if (predictions?.length) {
                           console.log(predictions);
 
                           // Now let's start classifying the stream.
@@ -297,11 +323,6 @@ export default defineComponent({
                             for (let n = 0; n < predictions.length; n++) {
                               // If we are over 66% sure we are sure we classified it right, draw it!
                               if (predictions[n].score > 0.66) {
-                                // const p = document.createElement('p')
-                                // p.innerText = predictions[n].class + ' - with '
-                                //   + Math.round(parseFloat(predictions[n].score.toString()) * 100)
-                                //   + '% confidence.';
-
                                 if (canvasContext) {
                                   // Bounding Box - Body Outline
                                   canvasContext.beginPath();
@@ -312,13 +333,13 @@ export default defineComponent({
                                   // Bounding Box - Body
                                   canvasContext.fillStyle = "rgba(27, 140, 254, 0.15)";
                                   canvasContext.fillRect(predictions[n].bbox[0], predictions[n].bbox[1], predictions[n].bbox[2], predictions[n].bbox[3]);
-                                  
+
                                   // Bounding Box - Title Outline
                                   canvasContext.beginPath();
                                   canvasContext.strokeStyle = "rgba(27, 140, 254, 0.30)"; //"rgba(255, 255, 255, 0.7)";
                                   canvasContext.rect(predictions[n].bbox[0], predictions[n].bbox[1], predictions[n].bbox[2], 25)
                                   canvasContext.stroke();
-                                  
+
                                   // Bounding Box - Title
                                   canvasContext.fillStyle = "rgba(27, 140, 254, 0.15)";
                                   canvasContext.fillRect(predictions[n].bbox[0], predictions[n].bbox[1], predictions[n].bbox[2], 25);
@@ -326,15 +347,19 @@ export default defineComponent({
                                   // Bounding Box - Title Text
                                   canvasContext.font = "12px Arial";
                                   canvasContext.fillStyle = "rgb(255, 255, 255)";
-                                  canvasContext.fillText(UppercaseFirstLetterOfWords(predictions[n].class)
-                                  // + ' - with '
-                                  // + Math.round(parseFloat(predictions[n].score.toString()) * 100)
-                                  // + '% confidence.'
-                                  , predictions[n].bbox[0] + 5, predictions[n].bbox[1] + 15);
+                                  canvasContext.fillText(predictions[n].class
+                                    // + ' - with '
+                                    // + Math.round(parseFloat(predictions[n].score.toString()) * 100)
+                                    // + '% confidence.'
+                                    , predictions[n].bbox[0] + 5, predictions[n].bbox[1] + 15);
                                 }
 
-                                // TODO: Fix bounding box issue as the bounding box is being drawn on the video element size and not the actual video so it's offset a bit due to zooming on smaller screens
-                                // NOTE: This may be achievable with a canvas as we can make the canvas and video equally distort to line up.
+                                // NOTE: Old Bounding Box Rendering Logic
+
+                                // const p = document.createElement('p')
+                                // p.innerText = predictions[n].class + ' - with '
+                                //   + Math.round(parseFloat(predictions[n].score.toString()) * 100)
+                                //   + '% confidence.';
 
                                 // Draw in top left of bounding box outline.
                                 // p.setAttribute('class', 'highlighter-title');
@@ -385,6 +410,7 @@ export default defineComponent({
       }
     }
 
+    // Rip capacitor-camera-preview not exposing a <video> element to allow processing of the feed and making snapchat clones & beyond
     const detectVideoMobile = async () => {
       console.log('Starting model!')
       const model = await cocoSsd.load();
