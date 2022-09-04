@@ -2,7 +2,7 @@
   <ion-page>
     <ion-header>
       <ion-toolbar>
-        <ion-title>Photo Gallery</ion-title>
+        <ion-title>Pose Detection</ion-title>
       </ion-toolbar>
     </ion-header>
     <ion-content :fullscreen="true">
@@ -19,7 +19,7 @@
         </ion-row>
       </ion-grid> -->
 
-      <ion-title id="conditions" class="ion-padding-top">Conditions: {{ showConditions }}</ion-title>
+      <ion-title id="conditions" class="ion-padding-top ion-text-center">Conditions: {{ showConditions }}</ion-title>
 
       <!-- <ion-fab v-if="checkPlatform() != 'web'" vertical="bottom" horizontal="start" slot="fixed">
         <ion-fab-button @click="CameraPreview.stop()">
@@ -347,14 +347,12 @@ export default defineComponent({
 </script>
 
 <style>
-#conditions {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
 .offscreen-image-render {
   display: none;
 }
 
+#conditions.ios {
+  margin-top: 44px;
+  height: 40px;
+}
 </style>

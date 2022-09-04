@@ -5,12 +5,9 @@
         <ion-title>Universal Appraiser</ion-title>
       </ion-toolbar>
     </ion-header>
+
     <ion-content id="content" class="camera-preview-content" :fullscreen="true">
-      <!-- <ion-header collapse="condense">
-        <ion-toolbar>
-          <ion-title size="large">Universal Appraiser</ion-title>
-        </ion-toolbar>
-      </ion-header> -->
+       
       <!-- <ion-grid>
         <ion-row>
           <ion-col size="6" :key="photo" v-for="photo in photos">
@@ -18,7 +15,7 @@
           </ion-col>
         </ion-row>
       </ion-grid> -->
-      <ion-title id="entities" class="ion-padding-top">Entities Detected: {{ entitiesCount }}</ion-title>
+      <ion-title id="entities" class="ion-padding-top ion-text-center">Entities Detected: {{ entitiesCount }}</ion-title>
 
       <ion-fab v-if="checkPlatform() != 'web'" vertical="bottom" horizontal="start" slot="fixed">
         <ion-fab-button @click="CameraPreview.stop()">
@@ -75,6 +72,7 @@ import '@tensorflow/tfjs-backend-cpu';
 // import '@tensorflow/tfjs-backend-wasm';
 
 import * as cocoSsd from '@tensorflow-models/coco-ssd';
+import { conditionalExpression } from '@babel/types';
 
 // import { createWorker, PSM, OEM } from 'tesseract.js';
 
@@ -96,7 +94,7 @@ export default defineComponent({
     IonItem,
   },
   setup() {
-    const { checkPlatform, UppercaseFirstLetterOfWords } = utilities();
+    const { isMobile, checkPlatform, UppercaseFirstLetterOfWords } = utilities();
 
     const { photos, takePhoto, deletePhoto } = usePhotoGallery();
 
@@ -199,6 +197,11 @@ export default defineComponent({
                     offscreenRender.style.display = 'none';
                   }
 
+                  const flashContainer = cameraShadowRoot.value?.querySelector('.items .flash');
+
+                  console.log(flashContainer)
+                  flashContainer.innerText = "Entities Detected: 0";
+
                   observer.disconnect();
 
                   if (videoElement.value) {
@@ -277,6 +280,10 @@ export default defineComponent({
                         try {
                           // Acceptable Parameter Formats: tf.Tensor3D, ImageData, HTMLVideoElement, HTMLImageElement, HTMLCanvasElement
                           predictions = await model.detect(videoElement.value);
+
+                          if (predictions?.length != entities.value.length) {
+                            flashContainer.innerText = "Entities Detected: " + predictions.length;
+                          }
 
                           entities.value = predictions;
                         } catch (err) {
@@ -454,7 +461,6 @@ export default defineComponent({
       const predictWebcam = async () => {
         console.log('prediction loop!')
 
-
         const result = await CameraPreview.captureSample({ quality: 0.85 });
         const base64PictureData = result.value;
 
@@ -519,10 +525,9 @@ export default defineComponent({
       await predictWebcam();
     }
 
-    onMounted(async () => {
-      // NOTE: Setup Model
-
-    })
+    // onMounted(async () => {
+    //   // NOTE: Setup Model
+    // })
 
     return {
       checkPlatform,
@@ -545,27 +550,8 @@ export default defineComponent({
 </script>
 
 <style scoped>
-#entities {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-.highlighter {
-  background: rgba(0, 255, 0, 0.25);
-  border: 1px dashed #fff;
-  z-index: 1;
-  position: absolute;
-}
-
-.camera-video p {
-  position: absolute;
-  padding: 5px;
-  background-color: rgba(255, 111, 0, 0.85);
-  color: #FFF;
-  border: 1px dashed rgba(255, 255, 255, 0.7);
-  z-index: 2;
-  font-size: 12px;
-  margin: 0;
+#entities.ios {
+  margin-top: 44px;
+  height: 40px;
 }
 </style>

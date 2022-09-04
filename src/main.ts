@@ -37,3 +37,8 @@ const app = createApp(App)
 router.isReady().then(() => {
   app.mount('#app');
 });
+
+// // Option to disable logging in production
+// if (process.env.NODE_ENV === 'production') {
+//   console.log = function () { return };
+// }

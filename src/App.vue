@@ -18,11 +18,11 @@ export default defineComponent({
 </script>
 
 <style>
-body {
+/* body {
   background: transparent !important;
 }
 
 ion-content {
   --background: transparent !important;
-}
+} */
 </style>

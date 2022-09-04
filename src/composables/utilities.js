@@ -1,6 +1,15 @@
 import { Capacitor } from '@capacitor/core';
 
 export default function() {
+  const isMobile = () => {
+    // Desktop devices shouldn't trigger this, but if they do we can add additional checks
+    if ("ontouchstart" in document.documentElement) {
+      return true;
+    } else {
+      return false;
+    }
+  }
+
   const checkPlatform = () => {
     return Capacitor.getPlatform()
   }
@@ -15,5 +24,5 @@ export default function() {
     return uppercasedSentence
   }
 
-  return { UppercaseFirstLetterOfWords, checkPlatform }
+  return { isMobile, checkPlatform, UppercaseFirstLetterOfWords }
 }
