@@ -141,8 +141,6 @@ export default defineComponent({
 
     const videoElement = ref();
 
-    const poseInterval = ref();
-
     const conditions: any = ref([]);
     const showConditions: any = computed(() => conditions.value.length != 0 ? conditions.value : 'None');
 
@@ -242,8 +240,6 @@ export default defineComponent({
                     canvas.style.top = "0";
                     canvas.style.left = "0";
                     
-                    // canvas.style.bottom = ((videoHeight * 2) + 8) + 'px';
-
                     videoElement.value.parentNode.appendChild(canvas);
                     
                     // const canvasStyle = document.createElement('style');

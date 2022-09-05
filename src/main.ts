@@ -2,6 +2,10 @@ import { createApp } from 'vue'
 import App from './App.vue'
 import router from './router';
 
+/* Bootstrap for utility claseses */
+import 'bootstrap/dist/css/bootstrap.min.css';
+import 'bootstrap';
+
 // NOTE: For Web Testing of the mobile camera view. Optional NODE_ENV Check is possible to maybe save resources.
 import '@capacitor-community/camera-preview';
 

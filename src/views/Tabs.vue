@@ -19,10 +19,10 @@
             <ion-label>Objects</ion-label>
           </ion-tab-button>
 
-          <ion-tab-button tab="tab4" href="/tabs/tab4">
+          <!-- <ion-tab-button tab="tab4" href="/tabs/tab4">
             <ion-icon :icon="menuOutline" />
             <ion-label>Menu</ion-label>
-          </ion-tab-button>
+          </ion-tab-button> -->
         </ion-tab-bar>
       </ion-tabs>
     </ion-content>
