@@ -7,7 +7,7 @@
     </ion-header>
 
     <ion-content id="content" class="camera-preview-content" :fullscreen="true">
-       
+
       <!-- <ion-grid>
         <ion-row>
           <ion-col size="6" :key="photo" v-for="photo in photos">
@@ -15,7 +15,10 @@
           </ion-col>
         </ion-row>
       </ion-grid> -->
-      <ion-title id="entities" class="ion-padding-top ion-text-center">Entities Detected: {{ entitiesCount }}</ion-title>
+      <ion-title id="entities" class="ion-padding-top ion-text-center">Entities Detected: {{ entitiesCount }}
+      </ion-title>
+      <ion-title id="detected-text" class="ion-padding-top ion-text-center">Detected Text: {{ detectedText.join(", ") }}
+      </ion-title>
 
       <ion-fab v-if="checkPlatform() != 'web'" vertical="bottom" horizontal="start" slot="fixed">
         <ion-fab-button @click="CameraPreview.stop()">
@@ -46,25 +49,25 @@ import utilities from '@/composables/utilities';
 import { camera, trash, close, repeat, closeOutline } from 'ionicons/icons';
 import {
   actionSheetController,
-  IonPage,
-  IonHeader,
+  IonCol,
+  IonContent,
   IonFab,
   IonFabButton,
-  IonIcon,
-  IonToolbar,
-  IonTitle,
-  IonContent,
-  IonImg,
   IonGrid,
-  IonRow,
-  IonCol,
+  IonHeader,
+  IonIcon,
+  IonImg,
   IonItem,
+  IonPage,
+  IonRow,
+  IonTitle,
+  IonToolbar,
 } from '@ionic/vue';
 
 import { usePhotoGallery, UserPhoto } from '@/composables/usePhotoGallery';
 import { CameraPreview, CameraPreviewOptions } from '@capacitor-community/camera-preview';
 
-import { computed, defineComponent, onMounted, ref } from 'vue';
+import { computed, defineComponent, onMounted, Ref, ref } from 'vue';
 
 // Register one of the TF.js backends.
 import '@tensorflow/tfjs-backend-webgl';
@@ -72,9 +75,9 @@ import '@tensorflow/tfjs-backend-cpu';
 // import '@tensorflow/tfjs-backend-wasm';
 
 import * as cocoSsd from '@tensorflow-models/coco-ssd';
-import { conditionalExpression } from '@babel/types';
+// import { conditionalExpression } from '@babel/types';
 
-// import { createWorker, PSM, OEM } from 'tesseract.js';
+import { createWorker, PSM, OEM } from 'tesseract.js';
 
 export default defineComponent({
   name: 'Tab3',
@@ -148,30 +151,23 @@ export default defineComponent({
     const entities: any = ref([]);
     const entitiesCount: any = computed(() => entities.value.length);
 
-    // The object detection database is said to recognize books but will it recognize them by only seeing their back? Testing is required.
-    const identifyObjects = () => {
-      // if (book) {
-      // parseBookTitles();
-      // }
+    // Text Parsing with Tesseract OCR
+    const detectedText: Ref<string[]> = ref([]);
+
+    const worker = createWorker({
+      logger: (m: any) => console.log(m),
+    });
+
+    const initWorker = async () => {
+      await worker.load();
+      await worker.loadLanguage('eng');
+      await worker.initialize('eng', OEM.LSTM_ONLY);
+      await worker.setParameters({
+        // user_defined_dpi: "300",
+        tessedit_pageseg_mode: PSM.SINGLE_BLOCK,
+        // tessjs_create_osd: '1',
+      });
     }
-
-    // const worker = createWorker({
-    //   logger: (m: any) => console.log(m),
-    // });
-
-    // TODO: Get Tesseract OCR working with Javascript 
-    // const parseBookTitles = async () => {
-    //   const img = document.getElementById('text-img');
-    //   console.log(img);
-    //   await worker.load();
-    //   await worker.loadLanguage('eng');
-    //   await worker.initialize('eng', OEM.LSTM_ONLY);
-    //   await worker.setParameters({
-    //     tessedit_pageseg_mode: PSM.SINGLE_BLOCK,
-    //   });
-    //   const { data: { text } } = await worker.recognize(img);
-    //   console.log(text);
-    // }
 
     const detectVideoWeb = () => {
       const observer = new MutationObserver(function (mutations_list) {
@@ -199,7 +195,6 @@ export default defineComponent({
 
                   const flashContainer = cameraShadowRoot.value?.querySelector('.items .flash');
 
-                  console.log(flashContainer)
                   flashContainer.innerText = "Entities Detected: 0";
 
                   observer.disconnect();
@@ -243,31 +238,9 @@ export default defineComponent({
                       canvas.height = videoHeight;
 
                       const model = await cocoSsd.load();
-
-                      // const liveView = videoElement.value.parentNode;
-                      // const predictionStyles = document.createElement('style');
-
-                      // // Getting styling into shadow-root instead of modifying highlight element's css with javascript every frame
-                      // predictionStyles.textContent = `
-                      // .highlighter {
-                      //   background: rgba(0, 255, 0, 0.25);
-                      //   border: 1px dashed #fff;
-                      //   z-index: 1;
-                      //   position: absolute;
-                      // }
-
-                      // .highlighter-title {
-                      //   position: absolute;
-                      //   padding: 5px;
-                      //   background-color: rgba(255, 111, 0, 0.85);
-                      //   color: #FFF;
-                      //   border: 1px dashed rgba(255, 255, 255, 0.7);
-                      //   z-index: 2;
-                      //   font-size: 12px;
-                      //   margin: 0;
-                      // }`;
-
-                      // liveView.append(predictionStyles);
+                      
+                      // Load Tesseract OCR
+                      await initWorker();
 
                       // Keep a reference of all the child elements we create
                       // so we can remove them easilly on each render.
@@ -308,25 +281,68 @@ export default defineComponent({
 
                           return
                         }
-
+                        
+                        // Clear canvas and detected text
                         if (canvasContext) {
                           canvasContext.clearRect(0, 0, canvas.width, canvas.height);
                           canvasContext.drawImage(videoElement.value, 0, 0);
                         }
-
+                        
                         if (predictions?.length) {
-                          console.log(predictions);
+                          // console.log(predictions);
 
                           // Now let's start classifying the stream.
                           model.detect(videoElement.value).then(function (predictions: any) {
-                            // Remove any highlighting we did previous frame.
-                            // for (let i = 0; i < children.length; i++) {
-                            //   liveView.removeChild(children[i]);
-                            // }
-                            // children.splice(0);
-
                             // Now lets loop through predictions and draw them to the live view if
                             // they have a high confidence score.
+
+                            // NOTE: We run the main loop twice to ensure that we grab the images before we draw over any of the detected objects so we can get a clearer image.
+                            // TODO: See if we can make it so that we only need to run the loop once but can get a clear image without any canvas bounding boxes drawn on it (for performance optimization)
+                            for (let n = 0; n < predictions.length; n++) {
+                              // Attempt to use OCR from either Tesseract or EAST to determine the text on the book. This may or may not be included in the main app depending on how reliable it is
+                              if (predictions[n].class == 'book') {
+                                (async () => {
+                                  // This may be slow but the OSR function worker.detect() doesnt offer a crop parameter like recognize does.
+                                  const bookCanvasData = canvasContext?.getImageData(predictions[n].bbox[0], predictions[n].bbox[1], predictions[n].bbox[2], predictions[n].bbox[3]);
+      
+                                  const bookCanvas = document.createElement("canvas")
+                                  if (bookCanvasData) {
+                                    bookCanvas.width = bookCanvasData?.width;
+                                    bookCanvas.height = bookCanvasData?.height;
+                                    const bookCanvasContext = bookCanvas.getContext("2d");
+                                    bookCanvasContext?.putImageData(bookCanvasData, 0, 0);
+                                  }
+                                  
+                                  // TODO: Find out with OSD isn't working, why DPI is 0 even though it's explicitly set to 70 in worker.config, and how to catch errors in the worker
+                                  // Attempt to recognize any text available in the image using OSD
+                                  try {
+                                    // const { data } = await worker.detect(bookCanvas);
+                                    
+                                    const { data: { text } } = await worker.recognize(bookCanvas);
+                                    console.log(text)
+                                    const bookDataUrl = bookCanvas.toDataURL().split('data:image/png;base64,')[1];
+                                    
+                                    // console.log(bookDataUrl)
+                                  // const { data: { text } } = await worker.recognize(canvas, {
+                                  //   rectangle: {
+                                  //     top: predictions[n].bbox[1], 
+                                  //     left: predictions[n].bbox[0], 
+                                  //     width: predictions[n].bbox[2], 
+                                  //     height: predictions[n].bbox[3]
+                                  //   },
+                                  // });
+                                  
+                                    detectedText.value.push(text);
+                                    console.log(`Object ${n}: \n${text}`);
+                                    // NOTE: Where should we update the text in the appplication to show the text of the book that is being recognized? Possibly overlay it over the bounding box of the book itself?
+                                    // flashContainer.innerText = text;
+                                  } catch(err) {
+                                    console.log(err)
+                                  }
+                                })();
+                              }
+                            }
+
                             for (let n = 0; n < predictions.length; n++) {
                               // If we are over 66% sure we are sure we classified it right, draw it!
                               if (predictions[n].score > 0.66) {
@@ -360,34 +376,6 @@ export default defineComponent({
                                     // + '% confidence.'
                                     , predictions[n].bbox[0] + 5, predictions[n].bbox[1] + 15);
                                 }
-
-                                // NOTE: Old Bounding Box Rendering Logic
-
-                                // const p = document.createElement('p')
-                                // p.innerText = predictions[n].class + ' - with '
-                                //   + Math.round(parseFloat(predictions[n].score.toString()) * 100)
-                                //   + '% confidence.';
-
-                                // Draw in top left of bounding box outline.
-                                // p.setAttribute('class', 'highlighter-title');
-                                // p.style.left = predictions[n].bbox[0] + 'px';
-                                // p.style.top = predictions[n].bbox[1] + 'px';
-                                // p.style.width = (predictions[n].bbox[2] - 10) + 'px';
-
-                                // Draw the actual bounding box.
-                                // const highlighter = document.createElement('div');
-                                // highlighter.setAttribute('class', 'highlighter');
-                                // highlighter.style.left = predictions[n].bbox[0] + 'px';
-                                // highlighter.style.top = predictions[n].bbox[1] + 'px';
-                                // highlighter.style.width = predictions[n].bbox[2] + 'px';
-                                // highlighter.style.height = predictions[n].bbox[3] + 'px';
-
-                                // liveView.appendChild(highlighter);
-                                // liveView.appendChild(p);
-
-                                // Store drawn objects in memory so we can delete them next time around.
-                                // children.push(highlighter);
-                                // children.push(p);
                               }
                             }
                           });
@@ -417,7 +405,7 @@ export default defineComponent({
       }
     }
 
-    // Rip capacitor-camera-preview not exposing a <video> element to allow processing of the feed and making snapchat clones & beyond
+    // RIP: capacitor-camera-preview not exposing a <video> element to allow processing of the feed and making snapchat clones & beyond
     const detectVideoMobile = async () => {
       console.log('Starting model!')
       const model = await cocoSsd.load();
@@ -544,6 +532,8 @@ export default defineComponent({
       CameraPreviewOptions,
       startCamera,
       videoFrame,
+      initWorker,
+      detectedText
     };
   },
 });

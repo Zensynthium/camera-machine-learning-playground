@@ -40,6 +40,7 @@
     "@tensorflow/tfjs-core": "^3.18.0",
     "@types/dat.gui": "^0.7.7",
     "@types/tesseract.js": "^2.0.0",
+    "axios": "^0.27.2",
     "bootstrap": "^5.2.0",
     "core-js": "^3.6.5",
     "dat.gui": "^0.7.9",

@@ -101,7 +101,6 @@ export default  {
 
                   const flashContainer = cameraShadowRoot.value?.querySelector('.items .flash');
 
-                  console.log(flashContainer)
                   flashContainer.innerText = "Loading Text Detection...";
 
                   observer.disconnect();

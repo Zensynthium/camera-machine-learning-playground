@@ -16,7 +16,12 @@
           
           <ion-tab-button tab="tab3" href="/tabs/tab3">
             <ion-icon :icon="shapesOutline" />
-            <ion-label>Objects</ion-label>
+            <ion-label>Object Detection</ion-label>
+          </ion-tab-button>
+
+          <ion-tab-button tab="tab4" href="/tabs/tab4">
+            <ion-icon :icon="imagesOutline" />
+            <ion-label>Segmentation</ion-label>
           </ion-tab-button>
 
           <!-- <ion-tab-button tab="tab4" href="/tabs/tab4">
@@ -31,7 +36,7 @@
 
 <script lang="ts">
 import { IonTabBar, IonTabButton, IonTabs, IonContent, IonLabel, IonIcon, IonPage, IonRouterOutlet } from '@ionic/vue';
-import { images, square, triangle, textOutline, bodyOutline, shapesOutline, menuOutline } from 'ionicons/icons';
+import { images, square, triangle, textOutline, bodyOutline, shapesOutline, menuOutline, imagesOutline } from 'ionicons/icons';
 
 export default {
   name: 'Tabs',
@@ -44,7 +49,8 @@ export default {
       textOutline,
       bodyOutline,
       shapesOutline,
-      menuOutline
+      menuOutline,
+      imagesOutline
     }
   }
 }
